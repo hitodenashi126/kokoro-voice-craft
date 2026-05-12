@@ -8,6 +8,8 @@ import {
   Settings2, 
   Info,
   ChevronRight,
+  ChevronDown,
+  ArrowUp,
   ArrowRight,
   RefreshCw,
   Waves,
@@ -234,10 +236,10 @@ export default function App() {
   const selectedVoice = VOICES.find(v => v.id === voiceId)!;
 
   return (
-    <div className="flex h-screen bg-[#050505] text-[#efefef] font-sans overflow-hidden selection:bg-blue-500/30">
+    <div className="flex h-screen bg-[#0d1117] text-[#c9d1d9] font-sans overflow-hidden selection:bg-blue-500/30">
       
       {/* Workstation Grid Background */}
-      <div className="fixed inset-0 pointer-events-none opacity-[0.03]" style={{ backgroundImage: 'linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px)', backgroundSize: '40px 40px' }} />
+      <div className="fixed inset-0 pointer-events-none opacity-[0.02]" style={{ backgroundImage: 'linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px)', backgroundSize: '40px 40px' }} />
       
       <div className="fixed inset-0 pointer-events-none opacity-10">
         <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-600/20 blur-[120px] rounded-full animate-pulse" />
@@ -251,24 +253,24 @@ export default function App() {
             initial={{ width: 0, opacity: 0 }}
             animate={{ width: 300, opacity: 1 }}
             exit={{ width: 0, opacity: 0 }}
-            className="border-r border-white-[0.05] bg-[#0A0A0A] flex flex-col shrink-0 overflow-hidden relative z-40 transition-shadow duration-500"
+            className="border-r border-[#30363d] bg-[#010409] flex flex-col shrink-0 overflow-hidden relative z-40 transition-shadow duration-500"
           >
             <div className="p-4 flex flex-col h-full">
               <div className="flex items-center gap-3 mb-8 px-2 py-2">
-                <div className="w-9 h-9 rounded-md bg-blue-600 flex items-center justify-center shadow-lg shadow-blue-600/10">
+                <div className="w-9 h-9 rounded-md bg-[#238636] flex items-center justify-center shadow-lg shadow-green-900/20">
                   <Waves className="w-5 h-5 text-white" />
                 </div>
                 <div className="flex flex-col">
-                  <span className="text-[11px] font-black tracking-[0.2em] uppercase">Kokoro<span className="text-blue-500">.Studio</span></span>
-                  <span className="text-[8px] text-gray-600 font-mono tracking-widest uppercase opacity-60">PRO_SUITE_V2.5.4</span>
+                  <span className="text-[11px] font-black tracking-[0.2em] uppercase">Kokoro<span className="text-[#3fb950]">.Craft</span></span>
+                  <span className="text-[8px] text-[#8b949e] font-mono tracking-widest uppercase opacity-60">STABLE_V2.5.4</span>
                 </div>
               </div>
 
               <div className="flex-1 overflow-y-auto custom-scrollbar space-y-6 pr-1">
                 <div className="space-y-3">
-                  <h3 className="px-2 text-[9px] font-bold text-gray-700 uppercase tracking-[0.4em] flex items-center gap-2">
+                  <h3 className="px-2 text-[9px] font-bold text-[#8b949e] uppercase tracking-[0.4em] flex items-center gap-2">
                     <Hash className="w-3 h-3 opacity-50" />
-                    Asset Buffer
+                    Sessions
                   </h3>
                   <div className="space-y-1">
                     {productions.map((p) => (
@@ -311,7 +313,7 @@ export default function App() {
                 </div>
 
                 <div className="pt-4 border-t border-white/[0.05] space-y-4">
-                  <h3 className="px-2 text-[9px] font-bold text-gray-700 uppercase tracking-[0.4em] flex items-center gap-2">
+                  <h3 className="px-2 text-[9px] font-bold text-[#8b949e] uppercase tracking-[0.4em] flex items-center gap-2">
                     <Settings2 className="w-3 h-3 opacity-50" />
                     Parameters
                   </h3>
@@ -360,15 +362,48 @@ export default function App() {
       </AnimatePresence>
 
       {/* Main Content Area */}
-      <main className="flex-1 flex flex-col relative overflow-hidden bg-black ring-1 ring-white/5">
+      <main className="flex-1 flex flex-col relative overflow-hidden bg-[#0d1117] ring-1 ring-[#30363d]">
         
         {/* Toggle Sidebar Button */}
         <button 
           onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-          className="absolute top-4 left-4 z-50 p-2.5 rounded-md bg-white/[0.02] border border-white-[0.05] text-gray-600 hover:text-white transition-all backdrop-blur-xl hover:bg-white/[0.05]"
+          className="absolute top-4 left-4 z-50 p-2.5 rounded-lg bg-[#21262d] border border-[#30363d] text-[#8b949e] hover:text-white transition-all hover:bg-[#30363d]"
         >
           <History className={`w-4 h-4 transition-transform duration-500 ${isSidebarOpen ? '-rotate-180' : ''}`} />
         </button>
+
+        {/* Global Loading Notification for Model */}
+        <AnimatePresence>
+          {status === 'loading_model' && (
+            <motion.div 
+              initial={{ y: -50, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: -50, opacity: 0 }}
+              className="absolute top-6 left-1/2 -translate-x-1/2 z-[100] w-full max-w-md px-4"
+            >
+              <div className="bg-[#161b22] border border-[#30363d] rounded-lg p-3 shadow-2xl flex items-center gap-3">
+                <div className="w-8 h-8 rounded-md bg-blue-600/10 flex items-center justify-center">
+                  <Database className="w-4 h-4 text-blue-500 animate-spin" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex justify-between items-center mb-1">
+                    <span className="text-[10px] font-bold text-[#c9d1d9] uppercase tracking-wider">Syncing Neural Model</span>
+                    <span className="text-[10px] font-mono text-[#8b949e]">{progress.toFixed(0)}%</span>
+                  </div>
+                  <div className="h-1.5 bg-[#21262d] rounded-full overflow-hidden">
+                    <motion.div 
+                      className="h-full bg-blue-500"
+                      initial={{ width: 0 }}
+                      animate={{ width: `${progress}%` }}
+                      transition={{ type: 'spring', bounce: 0, duration: 0.3 }}
+                    />
+                  </div>
+                  <p className="text-[8px] text-[#8b949e] mt-1.5 font-mono uppercase tracking-tighter">ENGINE: KOKORO-82M (ONNX_Q8)</p>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Studio Canvas */}
         <div className="flex-1 overflow-y-auto p-6 md:p-12 custom-scrollbar pt-20 pb-48">
@@ -392,56 +427,81 @@ export default function App() {
               )}
             </AnimatePresence>
 
-            <div className="space-y-6">
+            <div className="space-y-12">
               {[...productions].reverse().map((p) => (
-                <motion.div
-                  key={p.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="group relative bg-[#0C0C0C] border border-white/5 rounded-lg overflow-hidden hover:border-blue-500/20 transition-all duration-300 shadow-lg"
-                >
-                  <div className="p-6 md:p-8 space-y-6">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 rounded-md bg-blue-600/10 text-blue-500 flex items-center justify-center border border-blue-500/10 transition-transform">
-                          <Music className="w-4 h-4" />
-                        </div>
-                        <div>
-                          <p className="text-[10px] font-black text-gray-200 tracking-[0.2em] uppercase">{p.voice.name}</p>
-                          <p className="text-[8px] font-mono text-gray-700 tracking-widest mt-1 uppercase">BLOCK_ID: {p.id}</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <a 
-                          href={p.blobUrl} 
-                          download={`${p.id}.wav`}
-                          className="p-2 rounded-md bg-white/[0.02] border border-white-[0.05] text-gray-600 hover:text-white hover:bg-white/10 transition-all"
-                        >
-                          <Download className="w-4 h-4" />
-                        </a>
-                      </div>
-                    </div>
-                    
-                    <div className="p-5 border-l-2 border-blue-600/30 bg-white/[0.01] text-lg font-medium leading-relaxed text-gray-400 font-mono">
-                      {p.fullText}
-                    </div>
-
-                    <div className="pt-2 flex items-center gap-4">
+                <div key={p.id} className="space-y-4">
+                  {/* User Message (The Prompt) */}
+                  <div className="flex justify-end">
+                    <motion.div 
+                      initial={{ opacity: 0, x: 20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      className="max-w-[80%] bg-[#1c2128] border border-[#30363D] rounded-lg px-4 py-3 text-sm text-[#c9d1d9] shadow-sm relative group"
+                    >
+                      <p className="whitespace-pre-wrap">{p.fullText}</p>
                       <button 
-                        onClick={() => new Audio(p.blobUrl).play()}
-                        className="flex items-center gap-3 px-5 py-2.5 rounded-md bg-white text-black text-[9px] font-black tracking-widest uppercase hover:bg-blue-600 hover:text-white transition-all active:scale-95"
+                        className="absolute -left-8 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 p-1.5 text-[#8b949e] hover:text-white transition-opacity"
+                        onClick={() => setText(p.fullText)}
+                        title="Edit as new prompt"
                       >
-                        <Play className="w-3 h-3 fill-current" />
-                        AUDIT TRACK
+                        <Plus className="w-3.5 h-3.5" />
                       </button>
-                      <div className="flex-1 h-px bg-white/[0.05]" />
-                      <div className="flex gap-4 text-[8px] font-mono text-gray-600 uppercase tracking-tighter">
-                        <span>Tempo: {speed}X</span>
-                        <span>Length: {p.duration.toFixed(2)}S</span>
-                      </div>
-                    </div>
+                    </motion.div>
                   </div>
-                </motion.div>
+
+                  {/* Assistant Message (The Synthesis Result) */}
+                  <div className="flex justify-start">
+                    <motion.div 
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      className="max-w-[95%] w-full flex items-start gap-3"
+                    >
+                      <div className="w-8 h-8 rounded-md bg-[#238636]/10 border border-[#238636]/20 flex items-center justify-center shrink-0 mt-1">
+                        <Waves className="w-4 h-4 text-[#238636]" />
+                      </div>
+                      
+                      <div className="flex-1 space-y-3">
+                        <div className="flex items-center gap-3">
+                          <span className="text-[11px] font-bold text-[#c9d1d9] uppercase tracking-wider">{p.voice.name}</span>
+                          <span className="text-[10px] text-[#8b949e] font-mono tracking-tighter uppercase opacity-50">SYNCED {new Date(p.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                        </div>
+
+                        <div className="bg-[#0D1117] border border-[#30363D] rounded-lg overflow-hidden group">
+                          <div className="p-4 border-b border-[#30363D] flex items-center justify-between bg-[#161b22]/50">
+                            <div className="flex items-center gap-2">
+                              <button 
+                                onClick={() => new Audio(p.blobUrl).play()}
+                                className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-[#238636] text-white text-[10px] font-bold uppercase hover:bg-[#2ea043] transition-colors"
+                              >
+                                <Play className="w-3 h-3 fill-current" />
+                                Play Audio
+                              </button>
+                              <span className="text-[10px] font-mono text-[#8b949e]">{p.duration.toFixed(2)}s</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <a 
+                                href={p.blobUrl} 
+                                download={`${p.id}.wav`}
+                                className="p-1.5 rounded-md hover:bg-[#21262d] text-[#8b949e] hover:text-white transition-all"
+                              >
+                                <Download className="w-4 h-4" />
+                              </a>
+                              <button 
+                                onClick={() => deleteProduction(p.id)}
+                                className="p-1.5 rounded-md hover:bg-red-500/10 text-[#8b949e] hover:text-red-400 transition-all"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </div>
+                          
+                          <div className="p-4 text-sm text-[#8b949e] font-mono whitespace-pre-wrap leading-relaxed italic opacity-80 bg-black/20">
+                            Neural sequence generated successfully. Execution ID: {p.id.toUpperCase()}
+                          </div>
+                        </div>
+                      </div>
+                    </motion.div>
+                  </div>
+                </div>
               ))}
 
               {status === 'generating' && (
@@ -462,16 +522,16 @@ export default function App() {
           </div>
         </div>
 
-        {/* Global Prompt Workstation */}
-        <div className="absolute bottom-6 md:bottom-10 left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] max-w-4xl z-50 px-4 md:px-0">
-          <div className="bg-[#111111] border border-white/10 rounded-lg shadow-2xl overflow-hidden focus-within:border-blue-500/50 transition-all duration-300">
+        {/* Workstation Prompt Bar */}
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] max-w-4xl z-50 px-4 md:px-0">
+          <div className="bg-[#0D1117] border border-[#30363D] rounded-lg shadow-2xl overflow-hidden focus-within:border-[#444c56] transition-all duration-200">
             
             <div className="flex flex-col">
               <textarea 
                 value={text}
                 onChange={(e) => setText(e.target.value)}
-                placeholder="PROMPT_INPUT >>"
-                className="w-full bg-transparent border-none resize-none px-6 py-5 md:py-6 pr-16 text-lg font-mono placeholder:text-gray-800 focus:ring-0 max-h-[300px] custom-scrollbar"
+                placeholder="Type text for synthesis..."
+                className="w-full bg-transparent border-none resize-none px-5 py-4 text-sm font-sans placeholder:text-[#484f58] focus:ring-0 max-h-[300px] custom-scrollbar scroll-smooth"
                 rows={1}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && !e.shiftKey) {
@@ -482,53 +542,61 @@ export default function App() {
                 style={{ height: 'auto', minHeight: '60px' }}
               />
 
-              <div className="h-14 border-t border-white/[0.05] bg-white/[0.01] flex items-center justify-between px-4 md:px-6">
-                <div className="flex items-center gap-1.5 md:gap-2">
-                  <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" accept=".txt" />
+              <div className="h-12 border-t border-[#30363D] bg-[#0d1117] flex items-center justify-between px-3">
+                <div className="flex items-center gap-1.5">
+                  {/* Left Action Group */}
+                  <button className="p-2 rounded-md text-[#8b949e] hover:text-white hover:bg-[#21262d] transition-colors">
+                    <History className="w-4 h-4" />
+                  </button>
+                  <button className="p-2 rounded-md text-[#8b949e] hover:text-white hover:bg-[#21262d] transition-colors">
+                    <FileText className="w-4 h-4" />
+                  </button>
                   <button 
                     onClick={() => fileInputRef.current?.click()}
-                    className="p-2 md:p-2.5 rounded-md text-gray-700 hover:text-white hover:bg-white/[0.05] transition-all"
-                    title="Import Text"
+                    className="p-2 rounded-md text-[#8b949e] hover:text-white hover:bg-[#21262d] transition-colors"
                   >
-                    <Plus className="w-4 h-4 md:w-5 md:h-5" />
+                    <Plus className="w-4 h-4" />
+                    <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" accept=".txt" />
                   </button>
                   
-                  <div className="h-5 w-px bg-white/[0.05] mx-1" />
+                  <div className="h-4 w-px bg-[#30363D] mx-1" />
 
+                  {/* Voice Selector (Styled like Model Selector) */}
                   <div className="relative">
                     <button 
                       onClick={() => setShowVoicePicker(!showVoicePicker)}
-                      className={`flex items-center gap-2 px-3 md:px-4 py-2 rounded-md text-[9px] font-black tracking-tight uppercase transition-all ${showVoicePicker ? 'bg-blue-600 text-white' : 'bg-white/[0.02] border border-white-[0.05] text-gray-600 hover:text-white hover:bg-white/5'}`}
+                      className={`flex items-center gap-2 px-2.5 py-1.5 rounded-md text-[11px] font-medium text-[#c9d1d9] hover:bg-[#21262d] transition-all border border-transparent ${showVoicePicker ? 'bg-[#21262d]' : ''}`}
                     >
-                      <User className="w-3 md:w-3.5 h-3 md:h-3.5" />
-                      <span className="hidden sm:inline">{selectedVoice.name}</span>
-                      <ChevronRight className={`w-3 h-3 transition-transform ${showVoicePicker ? '-rotate-90' : ''}`} />
+                      <User className="w-3.5 h-3.5 text-[#8b949e]" />
+                      <span className="max-w-[100px] truncate">{selectedVoice.name}</span>
+                      <ChevronDown className={`w-3 h-3 text-[#8b949e] transition-transform ${showVoicePicker ? 'rotate-180' : ''}`} />
                     </button>
 
                     <AnimatePresence>
                       {showVoicePicker && (
                         <motion.div 
-                          initial={{ opacity: 0, y: 10, scale: 0.98 }}
-                          animate={{ opacity: 1, y: -10, scale: 1 }}
-                          exit={{ opacity: 0, y: 10, scale: 0.98 }}
-                          className="absolute bottom-full left-0 mb-2 w-[260px] bg-[#0A0A0A] border border-white/10 rounded-lg shadow-2xl p-1.5 z-[100] origin-bottom-left"
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: -8 }}
+                          exit={{ opacity: 0, y: 10 }}
+                          className="absolute bottom-full left-0 mb-2 w-[240px] bg-[#161b22] border border-[#30363D] rounded-lg shadow-2xl p-1 z-[100] origin-bottom-left"
                         >
-                          <div className="max-h-[300px] overflow-y-auto custom-scrollbar space-y-1">
+                          <div className="max-h-[250px] overflow-y-auto custom-scrollbar space-y-0.5">
+                            <div className="px-3 py-2 text-[10px] font-bold text-[#8b949e] uppercase tracking-wider">Voice Profiles</div>
                             {VOICES.map((v) => (
                               <div key={v.id} className="flex items-center gap-1 group/v">
                                 <button
                                   onClick={() => { setVoiceId(v.id); setShowVoicePicker(false); }}
-                                  className={`flex-1 text-left px-3 py-2.5 rounded-md transition-all flex items-center justify-between ${v.id === voiceId ? 'bg-blue-600/10 text-white' : 'hover:bg-white/[0.03] text-gray-600 hover:text-gray-200'}`}
+                                  className={`flex-1 text-left px-3 py-2 rounded-md transition-all flex items-center justify-between ${v.id === voiceId ? 'bg-[#1f6feb]/10 text-[#58a6ff]' : 'hover:bg-[#21262d] text-[#c9d1d9] hover:text-white'}`}
                                 >
                                   <div className="flex flex-col">
-                                    <span className="text-[10px] font-bold tracking-tight uppercase">{v.name}</span>
-                                    <span className="text-[8px] opacity-40 font-mono tracking-widest uppercase">{v.lang}</span>
+                                    <span className="text-xs font-medium">{v.name}</span>
+                                    <span className="text-[9px] text-[#8b949e] uppercase font-mono">{v.lang}</span>
                                   </div>
-                                  {v.id === voiceId && <Check className="w-3 h-3 text-blue-500" />}
+                                  {v.id === voiceId && <Check className="w-3.5 h-3.5" />}
                                 </button>
                                 <button 
                                   onClick={(e) => { e.stopPropagation(); playSample(v.id, v.name); }}
-                                  className={`p-2 rounded-md transition-all ${sampleVoiceId === v.id ? 'bg-blue-600 text-white' : 'hover:bg-white/10 text-gray-800 hover:text-white'}`}
+                                  className={`p-2 rounded-md mr-1 ${sampleVoiceId === v.id ? 'bg-[#238636] text-white' : 'hover:bg-[#21262d] text-[#8b949e] hover:text-[#c9d1d9]'}`}
                                   disabled={sampleVoiceId !== null}
                                 >
                                   {sampleVoiceId === v.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Volume2 className="w-3.5 h-3.5" />}
@@ -542,13 +610,21 @@ export default function App() {
                   </div>
                 </div>
 
+                {/* Right Action Button */}
                 <button 
                   onClick={handleProduce}
                   disabled={status === 'generating' || !text.trim() || status === 'loading_model'}
-                  className={`h-9 md:h-10 px-4 md:px-6 rounded-md text-[9px] font-black tracking-widest uppercase flex items-center gap-2.5 transition-all ${!text.trim() || status !== 'ready' ? 'bg-white/[0.02] text-gray-800 cursor-not-allowed' : 'bg-white text-black hover:bg-blue-600 hover:text-white active:scale-95'}`}
+                  className={`flex items-center justify-center w-8 h-8 rounded-md transition-all ${
+                    !text.trim() || status !== 'ready' 
+                      ? 'text-[#484f58] cursor-not-allowed' 
+                      : 'text-white bg-[#238636] hover:bg-[#2ea043]'
+                  }`}
                 >
-                  {status === 'generating' ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />}
-                  <span className="hidden sm:inline">{status === 'generating' ? 'Rendering' : 'Produce'}</span>
+                  {status === 'generating' ? (
+                    <div className="w-3 h-3 bg-white rounded-sm animate-pulse" />
+                  ) : (
+                    <ArrowUp className="w-5 h-5" />
+                  )}
                 </button>
               </div>
             </div>
@@ -594,11 +670,11 @@ export default function App() {
           background: rgba(255, 255, 255, 0.15);
         }
         textarea::placeholder {
-          color: rgba(255,255,255,0.03);
-          font-weight: 800;
-          text-transform: uppercase;
-          letter-spacing: 0.2em;
-          font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+          color: #484f58;
+          font-weight: 500;
+          text-transform: none;
+          letter-spacing: normal;
+          opacity: 0.8;
         }
       `}</style>
     </div>
