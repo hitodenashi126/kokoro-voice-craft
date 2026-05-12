@@ -284,7 +284,7 @@ export default function App() {
     <div className="flex h-screen bg-[#0d1117] text-[#c9d1d9] font-sans overflow-hidden selection:bg-blue-500/30">
       
       <AnimatePresence mode="wait">
-        {(status === 'loading_model' || status === 'idle') ? (
+        {(status === 'loading_model' || status === 'idle' || status === 'error') ? (
           <motion.div 
             key="setup"
             initial={{ opacity: 0 }}
@@ -313,33 +313,48 @@ export default function App() {
 
                 <div className="p-8 space-y-8">
                   <div className="flex items-center gap-6">
-                    <div className="w-16 h-16 rounded-xl bg-[#238636]/10 border border-[#238636]/20 flex items-center justify-center shrink-0">
-                      <Database className={`w-8 h-8 text-[#3fb950] ${status === 'loading_model' ? 'animate-pulse' : ''}`} />
+                    <div className={`w-16 h-16 rounded-xl border flex items-center justify-center shrink-0 transition-colors ${status === 'error' ? 'bg-red-500/10 border-red-500/20' : 'bg-[#238636]/10 border-[#238636]/20'}`}>
+                      <Database className={`w-8 h-8 ${status === 'error' ? 'text-red-500' : 'text-[#3fb950]'} ${status === 'loading_model' ? 'animate-pulse' : ''}`} />
                     </div>
                     <div className="flex-1">
-                      <h1 className="text-xl font-black text-white uppercase tracking-tighter mb-1">Sychnronizing Neural Engine</h1>
+                      <h1 className="text-xl font-black text-white uppercase tracking-tighter mb-1">
+                        {status === 'error' ? 'Initialization Failed' : 'Synchronizing Neural Engine'}
+                      </h1>
                       <p className="text-xs text-[#8b949e] font-mono uppercase tracking-widest">ONNX_COMMUNITY / KOKORO_82M_V1.0</p>
                     </div>
                   </div>
 
-                  <div className="space-y-4">
-                    <div className="flex justify-between items-end">
-                      <div className="space-y-1">
-                        <span className="text-[10px] font-bold text-[#c9d1d9] uppercase tracking-wider">Download Progress</span>
-                        <p className="text-[9px] text-[#8b949e] font-mono uppercase">Status: {progress >= 100 ? 'OPTIMIZING' : 'FETCHING_RESOURCES'}</p>
+                  {status === 'error' ? (
+                    <div className="p-4 bg-red-500/5 border border-red-500/20 rounded-lg space-y-4">
+                      <p className="text-[11px] text-red-400 font-mono text-center uppercase tracking-wider">{errorMessage}</p>
+                      <button 
+                        onClick={() => initModel()}
+                        className="w-full py-2 bg-red-600 hover:bg-red-700 text-white text-[10px] font-bold uppercase tracking-widest transition-colors rounded"
+                      >
+                        Retry Sync
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <div className="flex justify-between items-end">
+                        <div className="space-y-1">
+                          <span className="text-[10px] font-bold text-[#c9d1d9] uppercase tracking-wider">Download Progress</span>
+                          <p className="text-[9px] text-[#8b949e] font-mono uppercase">Status: {progress >= 100 ? 'OPTIMIZING' : 'FETCHING_RESOURCES'}</p>
+                        </div>
+                        <span className="text-2xl font-black text-[#58a6ff] font-mono">{progress.toFixed(1)}%</span>
                       </div>
-                      <span className="text-2xl font-black text-[#58a6ff] font-mono">{progress.toFixed(1)}%</span>
-                    </div>
 
-                    <div className="h-3 bg-[#21262d] rounded-full overflow-hidden p-0.5 border border-[#30363d]">
-                      <motion.div 
-                        className="h-full bg-blue-500 rounded-full shadow-[0_0_15px_rgba(59,130,246,0.5)]"
-                        initial={{ width: 0 }}
-                        animate={{ width: `${progress}%` }}
-                        transition={{ type: 'spring', bounce: 0, duration: 0.3 }}
-                      />
+                      <div className="h-3 bg-[#21262d] rounded-full overflow-hidden p-0.5 border border-[#30363d]">
+                        <motion.div 
+                          className="h-full bg-blue-500 rounded-full shadow-[0_0_15px_rgba(59,130,246,0.5)]"
+                          initial={{ width: 0 }}
+                          animate={{ width: `${progress}%` }}
+                          transition={{ type: 'spring', bounce: 0, duration: 0.3 }}
+                        />
+                      </div>
                     </div>
-                  </div>
+                  )}
+
 
                   {/* Terminal Logs */}
                   <div className="bg-black/40 border border-[#30363d] rounded-lg p-4 font-mono text-[10px] space-y-1.5 h-32 overflow-hidden">
@@ -585,7 +600,7 @@ export default function App() {
                             className="max-w-[95%] w-full flex items-start gap-3"
                           >
                             <div className="w-8 h-8 rounded-md bg-[#238636]/10 border border-[#238636]/20 flex items-center justify-center shrink-0 mt-1">
-                              <waves-lucide className="w-4 h-4 text-[#238636]" />
+                              <Waves className="w-4 h-4 text-[#238636]" />
                             </div>
                             
                             <div className="flex-1 space-y-3">
