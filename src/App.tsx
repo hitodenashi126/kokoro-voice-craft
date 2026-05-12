@@ -29,7 +29,8 @@ import {
   X,
   VolumeX,
   Database,
-  Hash
+  Hash,
+  Search
 } from 'lucide-react';
 import toWav from 'audiobuffer-to-wav';
 
@@ -70,12 +71,15 @@ export default function App() {
   const [voiceId, setVoiceId] = useState(VOICES[0].id);
   const [speed, setSpeed] = useState(1.0);
   const [status, setStatus] = useState<'idle' | 'loading_model' | 'ready' | 'generating' | 'error'>('idle');
+  const [isSynthesizing, setIsSynthesizing] = useState(false);
   const [progress, setProgress] = useState(0);
   const [errorMessage, setErrorMessage] = useState('');
   const [productions, setProductions] = useState<Production[]>([]);
   const [sampleVoiceId, setSampleVoiceId] = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth > 1024);
   const [showVoicePicker, setShowVoicePicker] = useState(false);
+  const [voiceSearch, setVoiceSearch] = useState('');
+  const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
   const [activeAudio, setActiveAudio] = useState<HTMLAudioElement | null>(null);
   const [bootLogs, setBootLogs] = useState<string[]>(['INITIALIZING_KERNEL_0.3.4...']);
   
@@ -109,8 +113,14 @@ export default function App() {
     stopAudio();
     const audio = new Audio(url);
     audio.onended = () => setActiveAudio(null);
-    audio.play();
+    audio.play().catch(console.error);
     setActiveAudio(audio);
+  };
+
+  const copyToClipboard = (text: string, id: string) => {
+    navigator.clipboard.writeText(text);
+    setCopyFeedback(id);
+    setTimeout(() => setCopyFeedback(null), 2000);
   };
 
   // Initialize model
@@ -119,14 +129,23 @@ export default function App() {
     
     setStatus('loading_model');
     setProgress(0);
+    setErrorMessage('');
     addLog('SEARCHING_LOCAL_CACHE...');
     
+    const timeout = setTimeout(() => {
+      if (status === 'loading_model' && progress === 0) {
+        addLog('WARNING: SYNC_LATENCY_DETECTED');
+      }
+    }, 10000);
+
     try {
       if (!Kokoro) {
         addLog('IMPORTING_KOKORO_RUNTIME...');
         const module: any = await import('kokoro-js');
         Kokoro = module.Kokoro;
       }
+
+      if (!Kokoro) throw new Error('Runtime identification failed.');
 
       addLog('SYNCING_ONNX_82M_ENGINE_Q8...');
       modelRef.current = await Kokoro.from_pretrained("onnx-community/Kokoro-82M-v1.0-ONNX", {
@@ -135,20 +154,22 @@ export default function App() {
         progress_callback: (p: any) => {
           if (p.status === 'progress') {
             setProgress(p.progress * 100);
-            if (p.progress > 0.1 && p.progress < 0.12) addLog('DOWNLOADING_WEIGHT_TENSORS...');
-            if (p.progress > 0.5 && p.progress < 0.52) addLog('ALLOCATING_WASM_PAGES...');
-            if (p.progress > 0.9 && p.progress < 0.92) addLog('VERIFYING_CHECKSUM...');
+            if (p.progress > 0.05 && p.progress < 0.07) addLog('INITIALIZING_WASM_WORKERS...');
+            if (p.progress > 0.3 && p.progress < 0.32) addLog('PULLING_NEURAL_WEIGHTS...');
+            if (p.progress > 0.7 && p.progress < 0.72) addLog('COMPILING_GRAPH_TENSORS...');
           }
         }
       });
       
-      addLog('ENGINE_READY_V1.0');
+      clearTimeout(timeout);
+      addLog('NEURAL_ENGINE_ONLINE');
       setTimeout(() => setStatus('ready'), 500);
-    } catch (err) {
+    } catch (err: any) {
+      clearTimeout(timeout);
       console.error(err);
       setStatus('error');
-      setErrorMessage('Neural engine failure. Check connectivity.');
-      addLog('EXCEPTION: KERNEL_HALT');
+      setErrorMessage(err.message || 'Neural engine failure. Requires WASM support.');
+      addLog('EXCEPTION: CRITICAL_KERNEL_ERROR');
     }
   };
 
@@ -163,21 +184,29 @@ export default function App() {
   }, [productions, status]);
 
   const handleProduce = async () => {
-    if (!modelRef.current || !text.trim() || status === 'generating') return;
+    if (!modelRef.current || !text.trim() || isSynthesizing) return;
     
-    setStatus('generating');
+    setIsSynthesizing(true);
     
     try {
       const currentText = text;
       
+      // Ensure AudioContext is initialized/resumed on user action
+      if (!audioContextRef.current) {
+        audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({
+          latencyHint: 'balanced',
+          sampleRate: 24000
+        });
+      }
+      
+      if (audioContextRef.current.state === 'suspended') {
+        await audioContextRef.current.resume();
+      }
+
       const result = await modelRef.current.generate(currentText, { 
         voice: voiceId,
         speed: speed
       });
-      
-      if (!audioContextRef.current) {
-        audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
-      }
       
       const buffer = audioContextRef.current.createBuffer(
         1, 
@@ -203,15 +232,13 @@ export default function App() {
       };
       
       setProductions(prev => [newProduction, ...prev]);
-      setStatus('ready');
-      setText(''); // Clear input only on success
-      
+      setText(''); 
       playAudio(blobUrl);
-      
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      setStatus('ready');
-      setErrorMessage('Synthesis failed. Text may be too long.');
+      setErrorMessage(err.message || 'Synthesis failed. Try shorter text fragments.');
+    } finally {
+      setIsSynthesizing(false);
     }
   };
 
@@ -326,13 +353,18 @@ export default function App() {
 
                   {status === 'error' ? (
                     <div className="p-4 bg-red-500/5 border border-red-500/20 rounded-lg space-y-4">
-                      <p className="text-[11px] text-red-400 font-mono text-center uppercase tracking-wider">{errorMessage}</p>
-                      <button 
-                        onClick={() => initModel()}
-                        className="w-full py-2 bg-red-600 hover:bg-red-700 text-white text-[10px] font-bold uppercase tracking-widest transition-colors rounded"
-                      >
-                        Retry Sync
-                      </button>
+                      <p className="text-[11px] text-red-100 font-mono text-center uppercase tracking-wider bg-red-500/20 p-2 rounded">{errorMessage}</p>
+                      <div className="space-y-2">
+                        <button 
+                          onClick={() => initModel()}
+                          className="w-full py-2 bg-red-600 hover:bg-red-700 text-white text-[10px] font-bold uppercase tracking-widest transition-colors rounded shadow-lg shadow-red-900/20"
+                        >
+                          Retry Bootstrap
+                        </button>
+                        <p className="text-[8px] text-[#8b949e] text-center uppercase leading-relaxed">
+                          Ensure WebAssembly is enabled and your browser <br/> supports SharedArrayBuffer if prompted.
+                        </p>
+                      </div>
                     </div>
                   ) : (
                     <div className="space-y-4">
@@ -424,6 +456,15 @@ export default function App() {
                     </div>
 
                     <div className="flex-1 overflow-y-auto custom-scrollbar space-y-6 pr-1">
+                      <div className="px-2 py-4 bg-blue-500/5 border border-blue-500/10 rounded-lg mb-6">
+                        <div className="flex gap-3">
+                          <Info className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
+                          <p className="text-[9px] text-blue-300 leading-normal font-medium">
+                            Synthesizing with <a href="https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX" target="_blank" rel="noopener noreferrer" className="underline hover:text-white">Kokoro-82M</a>, a lightweight neural model for high-fidelity speech.
+                          </p>
+                        </div>
+                      </div>
+
                       <div className="space-y-3">
                         <h3 className="px-2 text-[9px] font-bold text-[#8b949e] uppercase tracking-[0.4em] flex items-center gap-2">
                           <Hash className="w-3 h-3 opacity-50" />
@@ -460,6 +501,17 @@ export default function App() {
                               </button>
                             </motion.div>
                           ))}
+                          {productions.length > 0 && (
+                            <button 
+                              onClick={() => {
+                                productions.forEach(p => URL.revokeObjectURL(p.blobUrl));
+                                setProductions([]);
+                              }}
+                              className="w-full py-2 text-[8px] font-mono uppercase tracking-[0.2em] text-[#8b949e] hover:text-red-400 transition-colors border border-dashed border-[#30363d] rounded mt-2"
+                            >
+                              Purge All Sessions
+                            </button>
+                          )}
                           {productions.length === 0 && (
                             <div className="px-4 py-8 text-center border border-dashed border-white/5 rounded-lg opacity-20">
                               <History className="w-5 h-5 mx-auto mb-2 text-gray-600" />
@@ -553,7 +605,7 @@ export default function App() {
               <div className="flex-1 overflow-y-auto p-6 md:p-12 custom-scrollbar pt-20 pb-48">
                 <div className="max-w-4xl mx-auto w-full">
                   <AnimatePresence>
-                    {productions.length === 0 && status !== 'generating' && (
+                    {productions.length === 0 && !isSynthesizing && (
                       <motion.div 
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
@@ -622,6 +674,25 @@ export default function App() {
                                     <span className="text-[10px] font-mono text-[#8b949e]">{p.duration.toFixed(2)}s</span>
                                   </div>
                                   <div className="flex items-center gap-1">
+                                    <button 
+                                      onClick={() => copyToClipboard(p.fullText, p.id)}
+                                      className="p-1.5 rounded-md hover:bg-[#21262d] text-[#8b949e] hover:text-white transition-all relative"
+                                      title="Copy script"
+                                    >
+                                      <AnimatePresence>
+                                        {copyFeedback === p.id ? (
+                                          <motion.div
+                                            initial={{ opacity: 0, scale: 0.5 }}
+                                            animate={{ opacity: 1, scale: 1 }}
+                                            exit={{ opacity: 0 }}
+                                            className="absolute inset-0 flex items-center justify-center bg-green-500/10 rounded-md"
+                                          >
+                                            <Check className="w-4 h-4 text-green-500" />
+                                          </motion.div>
+                                        ) : null}
+                                      </AnimatePresence>
+                                      <Copy className="w-4 h-4" />
+                                    </button>
                                     <a 
                                       href={p.blobUrl} 
                                       download={`${p.id}.wav`}
@@ -648,7 +719,7 @@ export default function App() {
                       </div>
                     ))}
 
-                    {status === 'generating' && (
+                    {isSynthesizing && (
                       <motion.div 
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
@@ -689,6 +760,18 @@ export default function App() {
 
                     <div className="h-12 border-t border-[#30363D] bg-[#0d1117] flex items-center justify-between px-3">
                       <div className="flex items-center gap-1.5">
+                        <div className="h-4 w-px bg-[#30363D] mx-1" />
+                        
+                        <button 
+                          onClick={() => setText('')}
+                          className="p-2 rounded-md text-[#8b949e] hover:text-white hover:bg-[#21262d] transition-colors"
+                          title="Clear input"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                        
+                        <div className="h-4 w-px bg-[#30363D] mx-1" />
+
                         {/* Left Action Group */}
                         <button className="p-2 rounded-md text-[#8b949e] hover:text-white hover:bg-[#21262d] transition-colors">
                           <History className="w-4 h-4" />
@@ -723,11 +806,24 @@ export default function App() {
                                 initial={{ opacity: 0, y: 10 }}
                                 animate={{ opacity: 1, y: -8 }}
                                 exit={{ opacity: 0, y: 10 }}
-                                className="absolute bottom-full left-0 mb-2 w-[240px] bg-[#161b22] border border-[#30363D] rounded-lg shadow-2xl p-1 z-[100] origin-bottom-left"
+                                className="absolute bottom-full left-0 mb-2 w-[280px] bg-[#161b22] border border-[#30363D] rounded-lg shadow-2xl p-1 z-[100] origin-bottom-left"
                               >
+                                <div className="p-2 border-b border-[#30363d] mb-1">
+                                  <div className="relative">
+                                    <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-[#484f58]" />
+                                    <input 
+                                      autoFocus
+                                      type="text"
+                                      value={voiceSearch}
+                                      onChange={(e) => setVoiceSearch(e.target.value)}
+                                      placeholder="Search voices..."
+                                      className="w-full bg-[#0d1117] border border-[#30363d] rounded py-1 pl-7 pr-2 text-[10px] focus:outline-none focus:border-blue-500/50"
+                                    />
+                                  </div>
+                                </div>
                                 <div className="max-h-[250px] overflow-y-auto custom-scrollbar space-y-0.5">
                                   <div className="px-3 py-2 text-[10px] font-bold text-[#8b949e] uppercase tracking-wider">Voice Profiles</div>
-                                  {VOICES.map((v) => (
+                                  {VOICES.filter(v => v.name.toLowerCase().includes(voiceSearch.toLowerCase()) || v.lang.toLowerCase().includes(voiceSearch.toLowerCase())).map((v) => (
                                     <div key={v.id} className="flex items-center gap-1 group/v">
                                       <button
                                         onClick={() => { setVoiceId(v.id); setShowVoicePicker(false); }}
@@ -758,14 +854,14 @@ export default function App() {
                       {/* Right Action Button */}
                       <button 
                         onClick={handleProduce}
-                        disabled={status === 'generating' || !text.trim() || status === 'loading_model'}
+                        disabled={isSynthesizing || !text.trim() || status === 'loading_model'}
                         className={`flex items-center justify-center w-8 h-8 rounded-md transition-all ${
-                          !text.trim() || status !== 'ready' 
+                          !text.trim() || status === 'loading_model' || isSynthesizing
                             ? 'text-[#484f58] cursor-not-allowed' 
                             : 'text-white bg-[#238636] hover:bg-[#2ea043]'
                         }`}
                       >
-                        {status === 'generating' ? (
+                        {isSynthesizing ? (
                           <div className="w-3 h-3 bg-white rounded-sm animate-pulse" />
                         ) : (
                           <ArrowUp className="w-5 h-5" />
