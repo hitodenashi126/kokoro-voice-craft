@@ -30,7 +30,11 @@ import {
   VolumeX,
   Database,
   Hash,
-  Search
+  Search,
+  Cpu,
+  ShieldCheck,
+  Activity,
+  Layers
 } from 'lucide-react';
 import toWav from 'audiobuffer-to-wav';
 
@@ -71,6 +75,10 @@ export default function App() {
   const [voiceId, setVoiceId] = useState(VOICES[0].id);
   const [speed, setSpeed] = useState(1.0);
   const [status, setStatus] = useState<'idle' | 'loading_model' | 'ready' | 'generating' | 'error'>('idle');
+  const [modelConfig, setModelConfig] = useState({
+    dtype: 'q8',
+    device: 'wasm'
+  });
   const [isSynthesizing, setIsSynthesizing] = useState(false);
   const [progress, setProgress] = useState(0);
   const [errorMessage, setErrorMessage] = useState('');
@@ -124,57 +132,58 @@ export default function App() {
   };
 
   // Initialize model
-  const initModel = async () => {
+  const initModel = async (config = modelConfig) => {
     if (status === 'loading_model' || status === 'ready') return;
     
     setStatus('loading_model');
     setProgress(0);
     setErrorMessage('');
-    addLog('SEARCHING_LOCAL_CACHE...');
+    addLog(`INIT_REQUEST: DTYPE=${config.dtype.toUpperCase()}`);
     
     const timeout = setTimeout(() => {
       if (status === 'loading_model' && progress === 0) {
-        addLog('WARNING: SYNC_LATENCY_DETECTED');
+        addLog('WARNING: NETWORK_CONGESTION_DETECTED');
       }
-    }, 10000);
+    }, 15000);
 
     try {
       if (!Kokoro) {
-        addLog('IMPORTING_KOKORO_RUNTIME...');
+        addLog('MOUNTING_FS_DRIVERS...');
         const module: any = await import('kokoro-js');
         Kokoro = module.Kokoro;
       }
 
       if (!Kokoro) throw new Error('Runtime identification failed.');
 
-      addLog('SYNCING_ONNX_82M_ENGINE_Q8...');
+      addLog(`PULLING_MANIFEST: KOKORO_82M_${config.dtype.toUpperCase()}...`);
       modelRef.current = await Kokoro.from_pretrained("onnx-community/Kokoro-82M-v1.0-ONNX", {
-        dtype: "q8",
-        device: "wasm",
+        dtype: config.dtype,
+        device: config.device,
         progress_callback: (p: any) => {
           if (p.status === 'progress') {
             setProgress(p.progress * 100);
-            if (p.progress > 0.05 && p.progress < 0.07) addLog('INITIALIZING_WASM_WORKERS...');
-            if (p.progress > 0.3 && p.progress < 0.32) addLog('PULLING_NEURAL_WEIGHTS...');
-            if (p.progress > 0.7 && p.progress < 0.72) addLog('COMPILING_GRAPH_TENSORS...');
+            if (p.progress > 0.05 && p.progress < 0.07) addLog('ALLOCATING_WASM_MEM_HEAPS...');
+            if (p.progress > 0.3 && p.progress < 0.32) addLog('STREAMING_SHARD_BUFFERS...');
+            if (p.progress > 0.7 && p.progress < 0.72) addLog('MAP_REDUCE_CORE_WEIGHTS...');
           }
         }
       });
       
       clearTimeout(timeout);
-      addLog('NEURAL_ENGINE_ONLINE');
-      setTimeout(() => setStatus('ready'), 500);
+      addLog('NEURAL_FABRIC_CONNECTED');
+      setTimeout(() => setStatus('ready'), 800);
     } catch (err: any) {
       clearTimeout(timeout);
       console.error(err);
       setStatus('error');
-      setErrorMessage(err.message || 'Neural engine failure. Requires WASM support.');
-      addLog('EXCEPTION: CRITICAL_KERNEL_ERROR');
+      setErrorMessage(err.message || 'Engine bootstrap failure.');
+      addLog('EXCEPTION: KERNEL_HALT');
     }
   };
 
+  // Skip auto-init so user can choose config
   useEffect(() => {
-    initModel();
+    // initModel(); 
   }, []);
 
   useEffect(() => {
@@ -317,16 +326,17 @@ export default function App() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0, scale: 1.05 }}
-            className="fixed inset-0 z-[100] bg-[#0d1117] flex items-center justify-center p-6"
+            className="fixed inset-0 z-[100] bg-[#0d1117] flex items-center justify-center p-6 overflow-y-auto"
           >
             {/* Workstation Grid Background */}
             <div className="absolute inset-0 pointer-events-none opacity-[0.03]" style={{ backgroundImage: 'linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px)', backgroundSize: '40px 40px' }} />
             
-            <div className="w-full max-w-xl relative">
-              {/* Glow effects */}
-              <div className="absolute -top-32 -left-32 w-64 h-64 bg-blue-600/10 blur-[100px] rounded-full" />
-              <div className="absolute -bottom-32 -right-32 w-64 h-64 bg-green-600/10 blur-[100px] rounded-full" />
+            <div className="fixed inset-0 pointer-events-none opacity-20">
+              <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-600/30 blur-[150px] rounded-full animate-pulse" />
+              <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-purple-600/20 blur-[150px] rounded-full animate-pulse delay-700" />
+            </div>
 
+            <div className="w-full max-w-2xl relative my-auto">
               <div className="bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden shadow-2xl">
                 {/* Window Header */}
                 <div className="px-4 py-3 border-b border-[#30363d] bg-[#0d1117] flex items-center justify-between">
@@ -335,87 +345,161 @@ export default function App() {
                     <div className="w-2.5 h-2.5 rounded-full bg-yellow-500/20" />
                     <div className="w-2.5 h-2.5 rounded-full bg-green-500/20" />
                   </div>
-                  <span className="text-[10px] font-mono text-[#8b949e] uppercase tracking-widest">Kokoro_Initialization_Kernel_v1.0</span>
-                </div>
-
-                <div className="p-8 space-y-8">
-                  <div className="flex items-center gap-6">
-                    <div className={`w-16 h-16 rounded-xl border flex items-center justify-center shrink-0 transition-colors ${status === 'error' ? 'bg-red-500/10 border-red-500/20' : 'bg-[#238636]/10 border-[#238636]/20'}`}>
-                      <Database className={`w-8 h-8 ${status === 'error' ? 'text-red-500' : 'text-[#3fb950]'} ${status === 'loading_model' ? 'animate-pulse' : ''}`} />
-                    </div>
-                    <div className="flex-1">
-                      <h1 className="text-xl font-black text-white uppercase tracking-tighter mb-1">
-                        {status === 'error' ? 'Initialization Failed' : 'Synchronizing Neural Engine'}
-                      </h1>
-                      <p className="text-xs text-[#8b949e] font-mono uppercase tracking-widest">ONNX_COMMUNITY / KOKORO_82M_V1.0</p>
-                    </div>
-                  </div>
-
-                  {status === 'error' ? (
-                    <div className="p-4 bg-red-500/5 border border-red-500/20 rounded-lg space-y-4">
-                      <p className="text-[11px] text-red-100 font-mono text-center uppercase tracking-wider bg-red-500/20 p-2 rounded">{errorMessage}</p>
-                      <div className="space-y-2">
-                        <button 
-                          onClick={() => initModel()}
-                          className="w-full py-2 bg-red-600 hover:bg-red-700 text-white text-[10px] font-bold uppercase tracking-widest transition-colors rounded shadow-lg shadow-red-900/20"
-                        >
-                          Retry Bootstrap
-                        </button>
-                        <p className="text-[8px] text-[#8b949e] text-center uppercase leading-relaxed">
-                          Ensure WebAssembly is enabled and your browser <br/> supports SharedArrayBuffer if prompted.
-                        </p>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      <div className="flex justify-between items-end">
-                        <div className="space-y-1">
-                          <span className="text-[10px] font-bold text-[#c9d1d9] uppercase tracking-wider">Download Progress</span>
-                          <p className="text-[9px] text-[#8b949e] font-mono uppercase">Status: {progress >= 100 ? 'OPTIMIZING' : 'FETCHING_RESOURCES'}</p>
-                        </div>
-                        <span className="text-2xl font-black text-[#58a6ff] font-mono">{progress.toFixed(1)}%</span>
-                      </div>
-
-                      <div className="h-3 bg-[#21262d] rounded-full overflow-hidden p-0.5 border border-[#30363d]">
-                        <motion.div 
-                          className="h-full bg-blue-500 rounded-full shadow-[0_0_15px_rgba(59,130,246,0.5)]"
-                          initial={{ width: 0 }}
-                          animate={{ width: `${progress}%` }}
-                          transition={{ type: 'spring', bounce: 0, duration: 0.3 }}
-                        />
-                      </div>
-                    </div>
-                  )}
-
-
-                  {/* Terminal Logs */}
-                  <div className="bg-black/40 border border-[#30363d] rounded-lg p-4 font-mono text-[10px] space-y-1.5 h-32 overflow-hidden">
-                    {bootLogs.map((log, i) => (
-                      <motion.div 
-                        key={i}
-                        initial={{ opacity: 0, x: -5 }}
-                        animate={{ opacity: i === bootLogs.length - 1 ? 1 : 0.4, x: 0 }}
-                        className={i === bootLogs.length - 1 ? 'text-[#3fb950]' : 'text-[#8b949e]'}
-                      >
-                        {log}
-                      </motion.div>
-                    ))}
-                    {status === 'loading_model' && (
-                      <motion.div 
-                        animate={{ opacity: [0, 1] }} 
-                        transition={{ repeat: Infinity, duration: 0.8 }}
-                        className="w-1.5 h-3 bg-[#3fb950] inline-block ml-1 align-middle"
-                      />
-                    )}
-                  </div>
-                </div>
-
-                <div className="px-8 py-4 bg-[#0d1117] border-t border-[#30363d] flex justify-between items-center">
                   <div className="flex items-center gap-2">
-                    <Loader2 className="w-3 h-3 text-[#3fb950] animate-spin" />
-                    <span className="text-[8px] font-mono text-[#8b949e] uppercase tracking-[0.2em]">Local_Thread_Active</span>
+                    <Database className="w-3 h-3 text-blue-500" />
+                    <span className="text-[11px] font-mono text-[#8b949e] uppercase tracking-widest">Kokoro_Setup_Wizard_v1.0</span>
                   </div>
-                  <span className="text-[8px] font-mono text-[#484f58] uppercase">Secure Port 3000 // AES-256</span>
+                </div>
+
+                <div className="p-8">
+                  <AnimatePresence mode="wait">
+                    {status === 'idle' && (
+                      <motion.div 
+                        key="config"
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -10 }}
+                        className="space-y-8"
+                      >
+                        <div className="flex items-center gap-6">
+                          <div className="w-16 h-16 rounded-xl bg-blue-600/10 border border-blue-600/20 flex items-center justify-center shrink-0">
+                            <Cpu className="w-8 h-8 text-blue-500" />
+                          </div>
+                          <div>
+                            <h1 className="text-xl font-black text-white uppercase tracking-tighter">Neural Configuration</h1>
+                            <p className="text-xs text-[#8b949e] font-mono uppercase tracking-widest mt-1">Select engine precision for optimized synthesis</p>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {[
+                            { id: 'q8', name: 'Optimized (Q8)', size: '85MB', desc: 'Recommended: Balanced speed and fidelity.', icon: Zap },
+                            { id: 'q4', name: 'Ultra-Light (Q4)', size: '45MB', desc: 'Fastest: Optimized for low-bandwidth.', icon: Activity },
+                            { id: 'fp16', name: 'High-Fidelity (FP16)', size: '165MB', desc: 'Studio: Richer harmonics and detail.', icon: Music },
+                            { id: 'fp32', name: 'Reference (FP32)', size: '330MB', desc: 'Maximum: Lossless neural weights.', icon: ShieldCheck },
+                          ].map((opt) => (
+                            <button 
+                              key={opt.id}
+                              onClick={() => setModelConfig(prev => ({ ...prev, dtype: opt.id }))}
+                              className={`p-4 rounded-xl border text-left transition-all group ${modelConfig.dtype === opt.id ? 'bg-blue-600/10 border-blue-600/40 ring-1 ring-blue-600/20' : 'bg-[#0d1117]/50 border-[#30363d] hover:border-blue-600/20'}`}
+                            >
+                              <div className="flex justify-between items-start mb-2">
+                                <div className={`p-1.5 rounded-md ${modelConfig.dtype === opt.id ? 'bg-blue-500 text-white' : 'bg-white/5 text-[#8b949e] group-hover:bg-blue-500/20 group-hover:text-blue-400'}`}>
+                                  <opt.icon className="w-4 h-4" />
+                                </div>
+                                <span className={`text-[11px] font-mono font-bold ${modelConfig.dtype === opt.id ? 'text-blue-400' : 'text-[#484f58]'}`}>{opt.size}</span>
+                              </div>
+                              <h3 className={`text-sm font-bold uppercase tracking-tight ${modelConfig.dtype === opt.id ? 'text-white' : 'text-[#c9d1d9]'}`}>{opt.name}</h3>
+                              <p className="text-[11px] text-[#8b949e] mt-1 leading-relaxed">{opt.desc}</p>
+                            </button>
+                          ))}
+                        </div>
+
+                        <div className="pt-4">
+                          <button 
+                            onClick={() => initModel()}
+                            className="group w-full py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl flex items-center justify-center gap-3 transition-all shadow-xl shadow-blue-900/20"
+                          >
+                            <span className="font-black uppercase tracking-[0.2em] text-sm">Download_and_Initialize</span>
+                            <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                          </button>
+                          <p className="text-[10px] text-[#484f58] text-center mt-4 font-mono uppercase">Requires ~100MB Disk Space for Local Cache</p>
+                        </div>
+                      </motion.div>
+                    )}
+
+                    {(status === 'loading_model' || status === 'error') && (
+                      <motion.div 
+                        key="progress"
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        className="space-y-8"
+                      >
+                        <div className="flex items-center gap-6">
+                          <div className={`w-16 h-16 rounded-xl border flex items-center justify-center shrink-0 transition-colors ${status === 'error' ? 'bg-red-500/10 border-red-500/20' : 'bg-[#238636]/10 border-[#238636]/20'}`}>
+                            <Database className={`w-8 h-8 ${status === 'error' ? 'text-red-500' : 'text-[#3fb950]'} ${status === 'loading_model' ? 'animate-pulse' : ''}`} />
+                          </div>
+                          <div className="flex-1">
+                            <h1 className="text-xl font-black text-white uppercase tracking-tighter mb-1">
+                              {status === 'error' ? 'Bootstrap_Failure' : 'Synchronizing_Fabric'}
+                            </h1>
+                            <div className="flex items-center gap-2">
+                              <span className="text-[11px] text-blue-400 font-mono font-bold uppercase px-1.5 py-0.5 bg-blue-400/10 rounded">Precision: {modelConfig.dtype.toUpperCase()}</span>
+                              <span className="text-[11px] text-[#8b949e] font-mono uppercase tracking-widest">ONNX_82M_V1.0</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {status === 'error' ? (
+                          <div className="p-4 bg-red-500/5 border border-red-500/20 rounded-lg space-y-4">
+                            <p className="text-[11px] text-red-100 font-mono text-center uppercase tracking-wider bg-red-500/20 p-2 rounded">{errorMessage}</p>
+                            <div className="flex gap-2">
+                              <button 
+                                onClick={() => setStatus('idle')}
+                                className="flex-1 py-2 bg-[#21262d] hover:bg-[#30363d] text-white text-[10px] font-bold uppercase tracking-widest transition-colors rounded"
+                              >
+                                Change Config
+                              </button>
+                              <button 
+                                onClick={() => initModel()}
+                                className="flex-[2] py-2 bg-red-600 hover:bg-red-700 text-white text-[10px] font-bold uppercase tracking-widest transition-colors rounded shadow-lg shadow-red-900/20"
+                              >
+                                Retry Bootstrap
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="space-y-4">
+                            <div className="flex justify-between items-end">
+                              <div className="space-y-1">
+                                <span className="text-[11px] font-bold text-[#c9d1d9] uppercase tracking-wider">Loading sequence</span>
+                                <p className="text-[10px] text-[#8b949e] font-mono uppercase">Stage: {progress >= 100 ? 'FINALIZING' : 'DL_SHARD_ACTIVE'}</p>
+                              </div>
+                              <span className="text-2xl font-black text-[#58a6ff] font-mono">{progress.toFixed(1)}%</span>
+                            </div>
+
+                            <div className="h-3 bg-[#21262d] rounded-full overflow-hidden p-0.5 border border-[#30363d]">
+                              <motion.div 
+                                className="h-full bg-blue-500 rounded-full shadow-[0_0_15px_rgba(59,130,246,0.5)]"
+                                initial={{ width: 0 }}
+                                animate={{ width: `${progress}%` }}
+                                transition={{ type: 'spring', bounce: 0, duration: 0.3 }}
+                              />
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Terminal Logs */}
+                        <div className="bg-black/40 border border-[#30363d] rounded-lg p-4 font-mono text-[11px] space-y-1.5 h-32 overflow-hidden">
+                          {bootLogs.map((log, i) => (
+                            <motion.div 
+                              key={i}
+                              initial={{ opacity: 0, x: -5 }}
+                              animate={{ opacity: i === bootLogs.length - 1 ? 1 : 0.4, x: 0 }}
+                              className={i === bootLogs.length - 1 ? 'text-[#3fb950]' : 'text-[#8b949e]'}
+                            >
+                              {log}
+                            </motion.div>
+                          ))}
+                          {status === 'loading_model' && (
+                            <motion.div 
+                              animate={{ opacity: [0, 1] }} 
+                              transition={{ repeat: Infinity, duration: 0.8 }}
+                              className="w-1.5 h-3 bg-[#3fb950] inline-block ml-1 align-middle"
+                            />
+                          )}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+
+                <div className="px-8 py-4 bg-[#0d1117] border-t border-[#30363d] flex justify-between items-center text-[10px] font-mono text-[#484f58] uppercase tracking-[0.2em]">
+                  <div className="flex items-center gap-2">
+                    <div className={`w-1.5 h-1.5 rounded-full ${status === 'loading_model' ? 'bg-blue-500 animate-pulse' : 'bg-gray-800'}`} />
+                    <span>Kernel_Instance_Active</span>
+                  </div>
+                  <span>Secure_Protocol // AIS_INFRA</span>
                 </div>
               </div>
             </div>
@@ -450,8 +534,8 @@ export default function App() {
                         <Waves className="w-5 h-5 text-white" />
                       </div>
                       <div className="flex flex-col">
-                        <span className="text-[11px] font-black tracking-[0.2em] uppercase">Kokoro<span className="text-[#3fb950]">.Craft</span></span>
-                        <span className="text-[8px] text-[#8b949e] font-mono tracking-widest uppercase opacity-60">STABLE_V2.5.4</span>
+                        <span className="text-[12px] font-black tracking-[0.2em] uppercase">Kokoro<span className="text-[#3fb950]">.Craft</span></span>
+                        <span className="text-[10px] text-[#8b949e] font-mono tracking-widest uppercase opacity-60">STABLE_V2.5.4</span>
                       </div>
                     </div>
 
@@ -459,8 +543,8 @@ export default function App() {
                       <div className="px-2 py-4 bg-blue-500/5 border border-blue-500/10 rounded-lg mb-6">
                         <div className="flex gap-3">
                           <Info className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
-                          <p className="text-[9px] text-blue-300 leading-normal font-medium">
-                            Synthesizing with <a href="https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX" target="_blank" rel="noopener noreferrer" className="underline hover:text-white">Kokoro-82M</a>, a lightweight neural model for high-fidelity speech.
+                          <p className="text-[11px] text-blue-300 leading-normal font-medium">
+                            Synthesizing with <a href="https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX" target="_blank" rel="noopener noreferrer" className="underline hover:text-white transition-colors">Kokoro-82M</a>, a lightweight neural model for high-fidelity speech.
                           </p>
                         </div>
                       </div>
@@ -485,11 +569,11 @@ export default function App() {
                                   <Play className="w-3 h-3 fill-current" />
                                 </div>
                                 <div className="flex-1 min-w-0">
-                                  <p className="text-[10px] font-bold text-gray-300 truncate leading-relaxed tracking-tight">{p.text}</p>
+                                  <p className="text-xs font-bold text-gray-300 truncate leading-relaxed tracking-tight">{p.text}</p>
                                   <div className="flex items-center gap-2 mt-0.5">
-                                    <span className="text-[8px] text-gray-600 font-mono uppercase tracking-tighter">{p.duration.toFixed(1)}s</span>
-                                    <span className="text-[8px] text-gray-700">|</span>
-                                    <span className="text-[8px] text-gray-600 font-mono uppercase tracking-tighter truncate">{p.voice.name}</span>
+                                    <span className="text-[10px] text-gray-600 font-mono uppercase tracking-tighter">{p.duration.toFixed(1)}s</span>
+                                    <span className="text-[10px] text-gray-700">|</span>
+                                    <span className="text-[10px] text-gray-600 font-mono uppercase tracking-tighter truncate">{p.voice.name}</span>
                                   </div>
                                 </div>
                               </button>
@@ -507,7 +591,7 @@ export default function App() {
                                 productions.forEach(p => URL.revokeObjectURL(p.blobUrl));
                                 setProductions([]);
                               }}
-                              className="w-full py-2 text-[8px] font-mono uppercase tracking-[0.2em] text-[#8b949e] hover:text-red-400 transition-colors border border-dashed border-[#30363d] rounded mt-2"
+                              className="w-full py-2 text-[10px] font-mono uppercase tracking-[0.2em] text-[#8b949e] hover:text-red-400 transition-colors border border-dashed border-[#30363d] rounded mt-2"
                             >
                               Purge All Sessions
                             </button>
@@ -515,7 +599,7 @@ export default function App() {
                           {productions.length === 0 && (
                             <div className="px-4 py-8 text-center border border-dashed border-white/5 rounded-lg opacity-20">
                               <History className="w-5 h-5 mx-auto mb-2 text-gray-600" />
-                              <p className="text-[8px] text-gray-500 font-mono tracking-widest uppercase">Buffer Clear</p>
+                              <p className="text-[10px] text-gray-500 font-mono tracking-widest uppercase">Buffer Clear</p>
                             </div>
                           )}
                         </div>
@@ -528,16 +612,16 @@ export default function App() {
                         </h3>
                         <div className="bg-white/[0.01] rounded-lg p-4 space-y-5 border border-white/5">
                           <div className="space-y-3">
-                            <div className="flex justify-between items-center text-[9px] font-mono uppercase tracking-widest">
+                            <div className="flex justify-between items-center text-[11px] font-mono uppercase tracking-widest">
                               <span className="text-gray-600">Tempo (Speed)</span>
-                              <span className="text-blue-500 border border-blue-500/20 px-1.5 py-0.5 bg-blue-500/5">{speed.toFixed(2)}x</span>
+                              <span className="text-blue-500 border border-blue-500/20 px-1.5 py-0.5 bg-blue-500/5 font-bold">{speed.toFixed(2)}x</span>
                             </div>
                             <input 
                               type="range" min="0.5" max="2.0" step="0.1" value={speed}
                               onChange={(e) => setSpeed(parseFloat(e.target.value))}
                               className="w-full accent-blue-600 bg-white/5 h-1 rounded-none appearance-none cursor-pointer"
                             />
-                            <div className="flex justify-between text-[7px] font-mono text-gray-700 px-0.5 uppercase tracking-tighter">
+                            <div className="flex justify-between text-[8px] font-mono text-gray-700 px-0.5 uppercase tracking-tighter">
                               <span>Lento</span>
                               <span>Presto</span>
                             </div>
@@ -555,9 +639,9 @@ export default function App() {
                             <div key={i} className="p-3 rounded-lg bg-white/[0.01] border border-white/5 hover:border-white/10 transition-colors group">
                               <div className="flex items-center gap-2 mb-1.5">
                                 <tip.icon className="w-3 h-3 text-[#58a6ff] opacity-70" />
-                                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">{tip.title}</span>
+                                <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">{tip.title}</span>
                               </div>
-                              <p className="text-[11px] text-[#8b949e] leading-relaxed font-sans opacity-70 group-hover:opacity-100 transition-opacity">
+                              <p className="text-xs text-[#8b949e] leading-relaxed font-sans opacity-70 group-hover:opacity-100 transition-opacity">
                                 {tip.description}
                               </p>
                             </div>
@@ -571,7 +655,7 @@ export default function App() {
                         <div className="flex items-center gap-3">
                           <Database className={`w-3.5 h-3.5 ${status === 'loading_model' ? 'animate-spin' : ''}`} />
                           <div className="flex-1">
-                            <p className="text-[9px] font-black uppercase tracking-[0.25em]">{status === 'loading_model' ? 'Kernel_Sync' : 'Engine_Active'}</p>
+                            <p className="text-[10px] font-black uppercase tracking-[0.25em]">{status === 'loading_model' ? 'Kernel_Sync' : 'Engine_Active'}</p>
                             {status === 'loading_model' && (
                               <div className="w-full h-1 bg-white/5 rounded-none mt-1.5 overflow-hidden">
                                 <motion.div 
@@ -657,8 +741,8 @@ export default function App() {
                             
                             <div className="flex-1 space-y-3">
                               <div className="flex items-center gap-3">
-                                <span className="text-[11px] font-bold text-[#c9d1d9] uppercase tracking-wider">{p.voice.name}</span>
-                                <span className="text-[10px] text-[#8b949e] font-mono tracking-tighter uppercase opacity-50">SYNCED {new Date(p.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                <span className="text-xs font-bold text-[#c9d1d9] uppercase tracking-wider">{p.voice.name}</span>
+                                <span className="text-[11px] text-[#8b949e] font-mono tracking-tighter uppercase opacity-50">SYNCED {new Date(p.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                               </div>
 
                               <div className="bg-[#0D1117] border border-[#30363D] rounded-lg overflow-hidden group">
@@ -666,12 +750,12 @@ export default function App() {
                                   <div className="flex items-center gap-2">
                                     <button 
                                       onClick={() => playAudio(p.blobUrl)}
-                                      className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-[#238636] text-white text-[10px] font-bold uppercase hover:bg-[#2ea043] transition-colors"
+                                      className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-[#238636] text-white text-[11px] font-bold uppercase hover:bg-[#2ea043] transition-colors"
                                     >
                                       <Play className="w-3 h-3 fill-current" />
                                       Play Audio
                                     </button>
-                                    <span className="text-[10px] font-mono text-[#8b949e]">{p.duration.toFixed(2)}s</span>
+                                    <span className="text-[11px] font-mono text-[#8b949e]">{p.duration.toFixed(2)}s</span>
                                   </div>
                                   <div className="flex items-center gap-1">
                                     <button 
@@ -727,8 +811,8 @@ export default function App() {
                       >
                         <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
                         <div className="text-center">
-                          <p className="text-[9px] font-black text-blue-500 tracking-[0.4em] uppercase">Processing Signal</p>
-                          <p className="text-[8px] text-gray-700 font-mono mt-1 uppercase tracking-widest">Render_Active</p>
+                          <p className="text-[11px] font-black text-blue-500 tracking-[0.4em] uppercase">Processing Signal</p>
+                          <p className="text-[10px] text-gray-700 font-mono mt-1 uppercase tracking-widest">Render_Active</p>
                         </div>
                       </motion.div>
                     )}
@@ -817,12 +901,12 @@ export default function App() {
                                       value={voiceSearch}
                                       onChange={(e) => setVoiceSearch(e.target.value)}
                                       placeholder="Search voices..."
-                                      className="w-full bg-[#0d1117] border border-[#30363d] rounded py-1 pl-7 pr-2 text-[10px] focus:outline-none focus:border-blue-500/50"
+                                      className="w-full bg-[#0d1117] border border-[#30363d] rounded py-1.5 pl-7 pr-2 text-xs focus:outline-none focus:border-blue-500/50 placeholder:text-[#484f58]"
                                     />
                                   </div>
                                 </div>
                                 <div className="max-h-[250px] overflow-y-auto custom-scrollbar space-y-0.5">
-                                  <div className="px-3 py-2 text-[10px] font-bold text-[#8b949e] uppercase tracking-wider">Voice Profiles</div>
+                                  <div className="px-3 py-2 text-xs font-bold text-[#8b949e] uppercase tracking-wider">Voice Profiles</div>
                                   {VOICES.filter(v => v.name.toLowerCase().includes(voiceSearch.toLowerCase()) || v.lang.toLowerCase().includes(voiceSearch.toLowerCase())).map((v) => (
                                     <div key={v.id} className="flex items-center gap-1 group/v">
                                       <button
@@ -831,7 +915,7 @@ export default function App() {
                                       >
                                         <div className="flex flex-col">
                                           <span className="text-xs font-medium">{v.name}</span>
-                                          <span className="text-[9px] text-[#8b949e] uppercase font-mono">{v.lang}</span>
+                                          <span className="text-[10px] text-[#8b949e] uppercase font-mono">{v.lang}</span>
                                         </div>
                                         {v.id === voiceId && <Check className="w-3.5 h-3.5" />}
                                       </button>
@@ -883,7 +967,7 @@ export default function App() {
                   >
                     <VolumeX className="w-5 h-5 shrink-0 mt-0.5" />
                     <div className="flex-1 space-y-1">
-                      <h4 className="text-[9px] font-black uppercase tracking-[0.2em]">IO_ERROR</h4>
+                      <h4 className="text-[11px] font-black uppercase tracking-[0.2em]">IO_ERROR</h4>
                       <p className="text-xs font-bold leading-tight">{errorMessage}</p>
                     </div>
                     <button onClick={() => setErrorMessage('')} className="opacity-60 hover:opacity-100 transition-opacity">
