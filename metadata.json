@@ -1,0 +1,6 @@
+{
+  "name": "kokoro-voice-craft",
+  "description": "A playground for the ultra-lightweight and high-quality Kokoro Text-to-Speech model running entirely in your browser.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}
